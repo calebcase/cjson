@@ -57,9 +57,6 @@ struct cjson {
 
 /*** Generic ***/
 
-struct cjson *
-cjson_fscan(FILE *stream, struct cjson *parent);
-
 void
 cjson_fprint(FILE *stream, struct cjson *node);
 
