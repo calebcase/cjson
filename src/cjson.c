@@ -11,22 +11,30 @@
 #include <cjson.h>
 
 const char CJSONX_PARSE[] = "cjson:parse";
+const char CJSONX_INDEX[] = "cjson:index";
+const char CJSONX_NOT_FOUND[] = "cjson:not found";
 
 /*** cjson creation ***/
 
-static
-struct cjson *
-cjson_malloc(enum cjson_type type, struct cjson *parent)
+void
+cjson_init(struct cjson *node, enum cjson_type type, struct cjson *parent)
 {
-  struct cjson *node = ecx_malloc(sizeof(*node));
   node->type = type;
   node->parent = parent;
+
+  if (parent != NULL && parent->hook != NULL) {
+    node->hook = parent->hook;
+  }
+  else {
+    node->hook = NULL;
+  }
 
   switch (type) {
     case CJSON_ARRAY:
       node->value.array.data = NULL;
       break;
     case CJSON_BOOLEAN:
+      node->value.boolean = 0;
       break;
     case CJSON_NULL:
       break;
@@ -49,6 +57,24 @@ cjson_malloc(enum cjson_type type, struct cjson *parent)
       node->value.string.bytes = NULL;
       break;
   }
+}
+
+static
+struct cjson *
+cjson_malloc(enum cjson_type type, struct cjson *parent)
+{
+  struct cjson *node = NULL;
+
+  if (parent != NULL &&
+      parent->hook != NULL &&
+      parent->hook->cjson_malloc != NULL) {
+      node = parent->hook->cjson_malloc(type, parent);
+  }
+  else {
+    node = ecx_malloc(sizeof(*node));
+  }
+
+  cjson_init(node, type, parent);
 
   return node;
 }
@@ -124,7 +150,13 @@ cjson_free(struct cjson *node)
       break;
   }
 
-  free(node);
+  if (node->hook != NULL &&
+      node->hook->cjson_free != NULL) {
+      node->hook->cjson_free(node);
+  }
+  else {
+    free(node);
+  }
 }
 
 /*** Utilities ***/
@@ -200,7 +232,7 @@ cjson_fprint(FILE *stream, struct cjson *node)
 /*** cjson library initialization. ***/
 
 static void __attribute__ ((constructor))
-cjson_init(void)
+libcjson_init(void)
 {
   int status = 0;
 
@@ -216,7 +248,7 @@ cjson_init(void)
 }
 
 static void __attribute__ ((destructor))
-cjson_fini(void)
+libcjson_fini(void)
 {
   if (number_regex != NULL) {
     regfree(number_regex);

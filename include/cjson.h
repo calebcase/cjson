@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 extern const char CJSONX_PARSE[];
+extern const char CJSONX_INDEX[];
+extern const char CJSONX_NOT_FOUND[];
 
 enum cjson_type {
   CJSON_ARRAY   = 0x01,
@@ -21,9 +23,18 @@ enum cjson_type {
   CJSON_ALL_E   = 0x3F,       /* Convenience type for all valid extended bare json types. */
 };
 
+struct cjson;
+
+struct cjson_hook {
+  struct cjson *(*cjson_malloc)(enum cjson_type type, struct cjson *parent);
+  void (*cjson_free)(struct cjson *self);
+  void (*valid)(struct cjson *self);
+};
+
 struct cjson {
   enum cjson_type type;
   struct cjson *parent;
+  struct cjson_hook *hook;
 
   union {
     struct {
@@ -58,6 +69,9 @@ struct cjson {
 /*** Generic ***/
 
 void
+cjson_init(struct cjson *node, enum cjson_type type, struct cjson *parent);
+
+void
 cjson_fprint(FILE *stream, struct cjson *node);
 
 /* Finialize and deallocate a cjson tree. */
@@ -71,8 +85,23 @@ cjson_array_fscan(FILE *stream, struct cjson *parent);
 void
 cjson_array_fprint(FILE *stream, struct cjson *node);
 
+size_t
+cjson_array_length(struct cjson *self);
+
+struct cjson *
+cjson_array_get(struct cjson *self, size_t index);
+
+struct cjson *
+cjson_array_set(struct cjson *self, size_t index, struct cjson *item);
+
+struct cjson *
+cjson_array_truncate(struct cjson *self, size_t length);
+
 void
-cjson_array_lappend(struct cjson *self, struct cjson *item);
+cjson_array_append(struct cjson *self, struct cjson *item);
+
+void
+cjson_array_extend(struct cjson *self, struct cjson *item);
 
 /*** Boolean ***/
 
@@ -106,8 +135,22 @@ cjson_object_fscan(FILE *stream, struct cjson *parent);
 void
 cjson_object_fprint(FILE *stream, struct cjson *node);
 
-void
-cjson_object_insert(struct cjson *self, struct cjson *item);
+size_t
+cjson_object_count(struct cjson *self);
+
+struct cjson *
+cjson_object_get(struct cjson *self, char *key);
+
+struct cjson *
+cjson_object_set(struct cjson *self, struct cjson *pair);
+
+struct cjson *
+cjson_object_remove(struct cjson *self, struct cjson *pair);
+
+typedef int (*cjson_object_call_f)(void *data, struct cjson *pair);
+
+int
+cjson_object_for_each(struct cjson *self, int (*call)(void *data, struct cjson *pair), void *data);
 
 /*** Pair ***/
 
@@ -120,13 +163,10 @@ cjson_pair_fprint(FILE *stream, struct cjson *node);
 /*** Root ***/
 
 struct cjson *
-cjson_root_fscan(FILE *stream, enum cjson_type valid, unsigned int continuous);
+cjson_root_fscan(FILE *stream, enum cjson_type valid, unsigned int continuous, struct cjson_hook *hook);
 
 void
 cjson_root_fprint(FILE *stream, struct cjson *node);
-
-void
-cjson_root_lappend(struct cjson *self, struct cjson *item);
 
 /*** UTF-8 ***/
 

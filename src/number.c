@@ -44,6 +44,11 @@ cjson_number_fscan(FILE *stream, struct cjson *parent)
     }
   }
 
+  if (node->hook &&
+      node->hook->valid) {
+    node->hook->valid(node);
+  }
+
   return node;
 }
 

@@ -105,6 +105,11 @@ l_pair_finish:
     node->value.pair.value = value;
   }
 
+  if (node->hook &&
+      node->hook->valid) {
+    node->hook->valid(node);
+  }
+
   return node;
 }
 

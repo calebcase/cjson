@@ -147,6 +147,53 @@ START_TEST(gambit_nested_leaf)
 }
 END_TEST
 
+START_TEST(manipulate)
+{
+  char *o_str = "{}";
+  FILE *o_stream = ecx_ccstreams_fstropen(&o_str, "r");
+  struct cjson *o = cjson_object_fscan(o_stream, NULL);
+  fclose(o_stream);
+
+  fail_unless(cjson_object_count(o) == 0);
+
+  char *tmp_str = NULL;
+  FILE *tmp_stream = NULL;
+  struct cjson *tmp = NULL;
+  struct cjson *old = NULL;
+
+  tmp_str = "\"key\": \"value\"";
+  tmp_stream = ecx_ccstreams_fstropen(&tmp_str, "r");
+  tmp = cjson_pair_fscan(tmp_stream, NULL);
+  fclose(tmp_stream);
+
+  old = cjson_object_set(o, tmp);
+  fail_unless(old == NULL);
+  fail_unless(cjson_object_get(o, "key") == tmp);
+  fail_unless(o->value.object.key_length == 3, "Length: %zu (expecting 3)", o->value.object.key_length);
+  fail_unless(cjson_object_count(o) == 1);
+
+  tmp_str = "\"meaning\": 42";
+  tmp_stream = ecx_ccstreams_fstropen(&tmp_str, "r");
+  tmp = cjson_pair_fscan(tmp_stream, NULL);
+  fclose(tmp_stream);
+
+  old = cjson_object_set(o, tmp);
+  fail_unless(old == NULL);
+  fail_unless(cjson_object_get(o, "meaning") == tmp);
+  fail_unless(o->value.object.key_length == 7, "Length: %zu (expecting 7)", o->value.object.key_length);
+  fail_unless(cjson_object_count(o) == 2);
+
+  old = cjson_object_remove(o, tmp);
+  fail_unless(old != NULL);
+  fail_unless(old == tmp);
+  fail_unless(o->value.object.key_length == 3, "Length: %zu (expecting 3)", o->value.object.key_length);
+  fail_unless(cjson_object_count(o) == 1);
+  cjson_free(old);
+
+  cjson_free(o);
+}
+END_TEST
+
 static
 Suite *
 suite(void)
@@ -165,6 +212,10 @@ suite(void)
   tcase_add_test(tcase_gambit, gambit_leaf);
   tcase_add_test(tcase_gambit, gambit_nested_leaf);
   suite_add_tcase(suite, tcase_gambit);
+
+  TCase *tcase_manipulate = tcase_create("manipulate");
+  tcase_add_test(tcase_manipulate, manipulate);
+  suite_add_tcase(suite, tcase_manipulate);
 
  return suite;
 }

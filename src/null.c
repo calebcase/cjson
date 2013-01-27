@@ -23,6 +23,11 @@ l_invalid:
     }
   }
 
+  if (node->hook &&
+      node->hook->valid) {
+    node->hook->valid(node);
+  }
+
   return node;
 }
 

@@ -150,6 +150,83 @@ START_TEST(gambit_nested_leaf)
 }
 END_TEST
 
+START_TEST(manipulate)
+{
+  char *a_str = "[]";
+  FILE *a_stream = ecx_ccstreams_fstropen(&a_str, "r");
+  struct cjson *a = cjson_array_fscan(a_stream, NULL);
+  fclose(a_stream);
+
+  fail_unless(cjson_array_length(a) == 0);
+
+  char *tmp_str = NULL;
+  FILE *tmp_stream = NULL;
+  struct cjson *tmp = NULL;
+  struct cjson *old = NULL;
+
+  tmp_str = "true";
+  tmp_stream = ecx_ccstreams_fstropen(&tmp_str, "r");
+  tmp = cjson_boolean_fscan(tmp_stream, NULL);
+  fclose(tmp_stream);
+
+  cjson_array_append(a, tmp);
+  fail_unless(cjson_array_length(a) == 1);
+  fail_unless(cjson_array_get(a, 0) == tmp);
+
+  tmp_str = "null";
+  tmp_stream = ecx_ccstreams_fstropen(&tmp_str, "r");
+  tmp = cjson_null_fscan(tmp_stream, NULL);
+  fclose(tmp_stream);
+
+  old = cjson_array_set(a, 0, tmp);
+  fail_unless(cjson_array_length(a) == 1);
+  fail_unless(cjson_array_get(a, 0) == tmp);
+  fail_unless(old->type == CJSON_BOOLEAN);
+  cjson_free(old);
+
+  tmp_str = "1";
+  tmp_stream = ecx_ccstreams_fstropen(&tmp_str, "r");
+  tmp = cjson_number_fscan(tmp_stream, NULL);
+  fclose(tmp_stream);
+
+  cjson_array_append(a, tmp);
+  fail_unless(cjson_array_length(a) == 2);
+  fail_unless(cjson_array_get(a, 1) == tmp);
+
+  tmp_str = "2";
+  tmp_stream = ecx_ccstreams_fstropen(&tmp_str, "r");
+  tmp = cjson_number_fscan(tmp_stream, NULL);
+  fclose(tmp_stream);
+
+  cjson_array_append(a, tmp);
+  fail_unless(cjson_array_length(a) == 3);
+  fail_unless(cjson_array_get(a, 2) == tmp);
+
+  old = cjson_array_truncate(a, 1);
+  fail_unless(cjson_array_length(a) == 1);
+  fail_unless(cjson_array_length(old) == 2);
+  fail_unless(cjson_array_get(a, 0)->type == CJSON_NULL);
+  fail_unless(cjson_array_get(old, 0)->type == CJSON_NUMBER);
+  fail_unless(strcmp(cjson_array_get(old, 0)->value.number, "1") == 0);
+  fail_unless(cjson_array_get(old, 1)->type == CJSON_NUMBER);
+  fail_unless(strcmp(cjson_array_get(old, 1)->value.number, "2") == 0);
+
+  cjson_array_extend(a, old);
+  fail_unless(cjson_array_length(a) == 3);
+  fail_unless(cjson_array_get(a, 2) == tmp);
+  old = cjson_array_truncate(a, 1);
+  cjson_free(old);
+
+  old = cjson_array_truncate(a, 0);
+  fail_unless(cjson_array_length(a) == 0);
+  fail_unless(cjson_array_length(old) == 1);
+  fail_unless(cjson_array_get(old, 0)->type == CJSON_NULL);
+  cjson_free(old);
+
+  cjson_free(a);
+}
+END_TEST
+
 static
 Suite *
 suite(void)
@@ -168,6 +245,10 @@ suite(void)
   tcase_add_test(tcase_gambit, gambit_leaf);
   tcase_add_test(tcase_gambit, gambit_nested_leaf);
   suite_add_tcase(suite, tcase_gambit);
+
+  TCase *tcase_manipulate = tcase_create("manipulate");
+  tcase_add_test(tcase_manipulate, manipulate);
+  suite_add_tcase(suite, tcase_manipulate);
 
   return suite;
 }

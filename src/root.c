@@ -1,9 +1,17 @@
 /*** cjson root ***/
 
 struct cjson *
-cjson_root_fscan(FILE *stream, enum cjson_type valid, unsigned int continuous)
+cjson_root_fscan(FILE *stream, enum cjson_type valid, unsigned int continuous, struct cjson_hook *hook)
 {
-  struct cjson *node = cjson_malloc(CJSON_ROOT, NULL);
+  struct cjson *node = NULL;
+  if (hook != NULL &&
+      hook->cjson_malloc != NULL) {
+    node = hook->cjson_malloc(CJSON_ROOT, NULL);
+  }
+  else {
+    node = cjson_malloc(CJSON_ROOT, NULL);
+  }
+  node->hook = hook;
   ec_with_on_x(node, (ec_unwind_f)cjson_free) {
     int current = 0;
     struct cjson *child = NULL;
@@ -65,7 +73,7 @@ l_array:
     }
     child = cjson_array_fscan(stream, node);
     ec_with_on_x(child, (ec_unwind_f)cjson_free) {
-      cjson_root_lappend(node, child);
+      cjson_array_append(node, child);
     }
     go = go_root_next;
     goto l_loop;
@@ -77,7 +85,7 @@ l_number:
     }
     child = cjson_number_fscan(stream, node);
     ec_with_on_x(child, (ec_unwind_f)cjson_free) {
-      cjson_root_lappend(node, child);
+      cjson_array_append(node, child);
     }
     go = go_root_next;
     goto l_loop;
@@ -89,7 +97,7 @@ l_object:
     }
     child = cjson_object_fscan(stream, node);
     ec_with_on_x(child, (ec_unwind_f)cjson_free) {
-      cjson_root_lappend(node, child);
+      cjson_array_append(node, child);
     }
     go = go_root_next;
     goto l_loop;
@@ -101,7 +109,7 @@ l_string:
     }
     child = cjson_string_fscan(stream, node);
     ec_with_on_x(child, (ec_unwind_f)cjson_free) {
-      cjson_root_lappend(node, child);
+      cjson_array_append(node, child);
     }
     go = go_root_next;
     goto l_loop;
@@ -113,7 +121,7 @@ l_boolean:
     }
     child = cjson_boolean_fscan(stream, node);
     ec_with_on_x(child, (ec_unwind_f)cjson_free) {
-      cjson_root_lappend(node, child);
+      cjson_array_append(node, child);
     }
     go = go_root_next;
     goto l_loop;
@@ -125,7 +133,7 @@ l_null:
     }
     child = cjson_null_fscan(stream, node);
     ec_with_on_x(child, (ec_unwind_f)cjson_free) {
-      cjson_root_lappend(node, child);
+      cjson_array_append(node, child);
     }
     go = go_root_next;
     goto l_loop;
@@ -139,6 +147,11 @@ l_root_next:
 
 l_root_finish:
     go = go_root;
+  }
+
+  if (node->hook &&
+      node->hook->valid) {
+    node->hook->valid(node);
   }
 
   return node;
@@ -158,7 +171,7 @@ cjson_root_fprint(FILE *stream, struct cjson *node)
   size_t count = depth(node);
 
   JLC(total, node->value.root.data, 0, -1);
-  JLF(value, node->value.array.data, index);
+  JLF(value, node->value.root.data, index);
   while (value != NULL) {
     cjson_fprint(stream, *value);
 
@@ -166,22 +179,6 @@ cjson_root_fprint(FILE *stream, struct cjson *node)
       ecx_fprintf(stream, "\n");
     }
 
-    JLN(value, node->value.array.data, index);
+    JLN(value, node->value.root.data, index);
   }
-}
-
-void
-cjson_root_lappend(struct cjson *self, struct cjson *item)
-{
-  if (self->type != CJSON_ROOT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_ROOT.", self->type);
-    return;
-  }
-
-  struct cjson **value = NULL;
-  Word_t index = 0;
-
-  JLC(index, self->value.root.data, 0, -1);
-  JLI(value, self->value.root.data, index);
-  *value = item;
 }
