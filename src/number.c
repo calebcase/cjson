@@ -11,10 +11,10 @@ cjson_number_fscan(FILE *stream, struct cjson *parent)
   ec_with_on_x(node, (ec_unwind_f)cjson_free) {
     char *number = NULL;
     ec_with_on_x(number, free) {
+      int current = ecx_fgetc(stream);
       FILE *out = ecx_ccstreams_fstropen(&number, "w+");
       ec_with(out, (ec_unwind_f)ecx_fclose) {
         /* Scan and buffer up the number. */
-        int current = ecx_fgetc(stream);
         for (; current != EOF; errno = 0, current = ecx_fgetc(stream)) {
           if (current == ' '  ||
               current == '\n' ||
@@ -31,7 +31,7 @@ cjson_number_fscan(FILE *stream, struct cjson *parent)
       }
 
       if (strnlen(number, 1) == 0) {
-        ec_throw_str_static(CJSONX_PARSE, "Failed to find number to parse.");
+        cjsonx_parse_c(stream, current, "Failed to find number to parse.");
       }
 
       /* Verify that the format is valid. */
@@ -42,11 +42,11 @@ cjson_number_fscan(FILE *stream, struct cjson *parent)
 
       node->value.number = number;
     }
-  }
 
-  if (node->hook &&
-      node->hook->valid) {
-    node->hook->valid(node);
+    if (node->hook &&
+        node->hook->valid) {
+      node->hook->valid(node);
+    }
   }
 
   return node;
@@ -55,10 +55,7 @@ cjson_number_fscan(FILE *stream, struct cjson *parent)
 void
 cjson_number_fprint(FILE *stream, struct cjson *node)
 {
-  if (node->type != CJSON_NUMBER) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_NUMBER.", node->type);
-    return;
-  }
+  cjsonx_type(node, CJSON_NUMBER);
 
   ecx_fprintf(stream, "%s", node->value.number);
 }

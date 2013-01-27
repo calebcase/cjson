@@ -8,7 +8,8 @@ cjson_u8_fputu(const uint32_t u, FILE *stream)
 
   if ((u >= 0xD800 && u <= 0xDFFF) || /* Reserved for UTF-16 parsing. */
       (u >= 0xFFFE && u <= 0xFFFF)) {
-    ec_throw_strf(ECX_EC, "Invalid unicode character at: %ld: %x.", ftell(stream), u);
+    uint64_t u32 = u;
+    cjsonx_parse_u(stream, u32, "Invalid unicode character.");
   }
 
   if (u <= 0x7F) {
@@ -34,7 +35,8 @@ cjson_u8_fputu(const uint32_t u, FILE *stream)
     ecx_fwrite(bytes, 1, 4, stream);
   }
   else {
-    ec_throw_strf(ECX_EC, "Invalid unicode character at: %ld: %x.", ftell(stream), u);
+    uint64_t u32 = u;
+    cjsonx_parse_u(stream, u32, "Invalid unicode character.");
   }
 }
 
@@ -88,11 +90,7 @@ cjson_u8_fgetu(FILE *stream)
   }
 
 l_invalid:
-  {
-    long location = ftell(stream);
-    ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %x: %s", location, current, message);
-  }
-  return 0;
+  cjsonx_parse_c(stream, current, "Expecting a UTF-8 character.");
 
 l_utf8_1:
   return current;
@@ -101,13 +99,14 @@ l_utf8_2:
   bytes[0] = current;
   bytes[1] = ecx_fgetc(stream);
 
-  if (u8_overlong(bytes)) {
-    message = "Overlong UTF-8 encoding.";
-    goto l_invalid;
-  }
-
   u  = (bytes[0] & 0x1F) << 6;
   u |= (bytes[1] & 0x3F);
+
+  if (u8_overlong(bytes)) {
+    int64_t u32 = u;
+    cjsonx_parse_u(stream, u32, "Overlong 2-byte UTF-8 encoding.");
+  }
+
   return u;
 
 l_utf8_3:
@@ -115,14 +114,15 @@ l_utf8_3:
   bytes[1] = ecx_fgetc(stream);
   bytes[2] = ecx_fgetc(stream);
 
-  if (u8_overlong(bytes)) {
-    message = "Overlong UTF-8 encoding.";
-    goto l_invalid;
-  }
-
   u  = (bytes[0] & 0x0F) << 12;
   u |= (bytes[1] & 0x3F) << 6;
   u |= (bytes[2] & 0x3F);
+
+  if (u8_overlong(bytes)) {
+    int64_t u32 = u;
+    cjsonx_parse_u(stream, u32, "Overlong 3-byte UTF-8 encoding.");
+  }
+
   return u;
 
 l_utf8_4:
@@ -131,14 +131,15 @@ l_utf8_4:
   bytes[2] = ecx_fgetc(stream);
   bytes[3] = ecx_fgetc(stream);
 
-  if (u8_overlong(bytes)) {
-    message = "Overlong UTF-8 encoding.";
-    goto l_invalid;
-  }
-
   u  = (bytes[0] & 0x07) << 18;
   u |= (bytes[1] & 0x3F) << 12;
   u |= (bytes[2] & 0x3F) << 6;
   u |= (bytes[3] & 0x3F);
+
+  if (u8_overlong(bytes)) {
+    int64_t u32 = u;
+    cjsonx_parse_u(stream, u32, "Overlong 4-byte UTF-8 encoding.");
+  }
+
   return u;
 }

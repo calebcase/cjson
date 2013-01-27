@@ -9,10 +9,10 @@ cjson_string_fscan(FILE *stream, struct cjson *parent)
     ec_with(out, (ec_unwind_f)ecx_fclose) {
       int64_t current = cjson_jestr_fgetu(stream);
       if (current == EOF) {
-        ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %" PRIx64 ": Expecting more data.", ftell(stream), current);
+        cjsonx_parse_u(stream, current, "Expecting more data; Failed to find string to parse.");
       }
       else if (current != '"') {
-        ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %" PRIx64 ": Expecting '\"'.", ftell(stream), current);
+        cjsonx_parse_u(stream, current, "Failed to find string to parse; Expecting '\"'.");
       }
 
       int peek = ecx_getc(stream);
@@ -21,7 +21,7 @@ cjson_string_fscan(FILE *stream, struct cjson *parent)
 
       for (;; peek = ecx_getc(stream), ecx_ungetc(peek, stream), current = cjson_jestr_fgetu(stream)) {
         if (current == EOF) {
-          ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %" PRIx64 ": Expecting more data.", ftell(stream), current);
+          cjsonx_parse_u(stream, current, "Expecting more data; Failed to find end of string.");
         }
         else if (current == '"' && peek != '\\') {
           break;
@@ -29,11 +29,11 @@ cjson_string_fscan(FILE *stream, struct cjson *parent)
         cjson_u8_fputu(current, out);
       }
     }
-  }
 
-  if (node->hook &&
-      node->hook->valid) {
-    node->hook->valid(node);
+    if (node->hook &&
+        node->hook->valid) {
+      node->hook->valid(node);
+    }
   }
 
   return node;
@@ -42,10 +42,7 @@ cjson_string_fscan(FILE *stream, struct cjson *parent)
 void
 cjson_string_fprint(FILE *stream, struct cjson *node)
 {
-  if (node->type != CJSON_STRING) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_STRING.", node->type);
-    return;
-  }
+  cjsonx_type(node, CJSON_STRING);
 
   FILE *in = ecx_ccstreams_fmemopen(&node->value.string.bytes, &node->value.string.length, "r");
   ec_with(in, (ec_unwind_f)ecx_fclose) {

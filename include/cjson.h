@@ -4,9 +4,10 @@
 #include <stdio.h>
 #include <stdint.h>
 
-extern const char CJSONX_PARSE[];
-extern const char CJSONX_INDEX[];
-extern const char CJSONX_NOT_FOUND[];
+extern const char CJSONX_PARSE[];       /* Data: C String. */
+extern const char CJSONX_TYPE[];        /* Data: C String. */
+extern const char CJSONX_INDEX[];       /* Data: C String. */
+extern const char CJSONX_NOT_FOUND[];   /* Data: C String. */
 
 enum cjson_type {
   CJSON_ARRAY   = 0x01,

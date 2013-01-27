@@ -10,9 +10,31 @@
 
 #include <cjson.h>
 
+/*** cjson exceptions ***/
+
 const char CJSONX_PARSE[] = "cjson:parse";
+const char CJSONX_TYPE[] = "cjson:type";
 const char CJSONX_INDEX[] = "cjson:index";
 const char CJSONX_NOT_FOUND[] = "cjson:not found";
+
+#define xstr(s) str(s)
+#define str(s) #s
+
+#define cjsonx_type(n,t) \
+  if ((n)->type != (t)) { \
+    ec_throw_strf(CJSONX_TYPE, "Invalid node type: 0x%2x. Requires " str(t) " 0x%2x.", (n)->type, t); \
+  } \
+
+#define cjsonx_type2(n,t1,t2) \
+  if ((n)->type != (t1) && (n)->type != (t2)) { \
+    ec_throw_strf(CJSONX_TYPE, "Invalid node type: 0x%2x. Requires " str(t1) " 0x%2x or " str(t2) " 0x%2x.", (n)->type, t1, t2); \
+  } \
+
+#define cjsonx_parse_c(s,c,m,...) \
+  ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %x '%c': " m, ftell(s), (c), (c), ##__VA_ARGS__); \
+
+#define cjsonx_parse_u(s,u,m,...) \
+  ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %" PRIx64 ": " m, ftell(s), (u), ##__VA_ARGS__); \
 
 /*** cjson creation ***/
 
@@ -161,7 +183,8 @@ cjson_free(struct cjson *node)
 
 /*** Utilities ***/
 
-static size_t
+static
+size_t
 depth(const struct cjson *node)
 {
   size_t count = 0;
@@ -173,7 +196,8 @@ depth(const struct cjson *node)
   return count;
 }
 
-static void
+static
+void
 indent(FILE *stream, size_t count)
 {
   for (size_t i = 0; i < count; i++) {
@@ -240,7 +264,7 @@ libcjson_init(void)
   if (number_regex == NULL) {
     status = regcomp(&number_regex_storage, number_pattern, REG_EXTENDED);
     if (status != 0) {
-      ec_throw_str_static(ECX_EC, "Failed to compile regex.");
+      ec_throw_str_static(ECX_EC, "Failed to compile number regex.");
     }
 
     number_regex = &number_regex_storage;

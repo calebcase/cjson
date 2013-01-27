@@ -38,8 +38,7 @@ cjson_array_fscan(FILE *stream, struct cjson *parent)
 
     current = ecx_fgetc(stream);
     if (current != '[') {
-      long location = ftell(stream);
-      ec_throw_strf(CJSONX_PARSE, "Unable to find array to parse: %ld", location);
+      cjsonx_parse_c(stream, current, "Unable to find array to parse; Expecting '['.");
     }
 
     for (current = ecx_fgetc(stream); current != EOF; errno = 0, current = ecx_fgetc(stream)) {
@@ -47,10 +46,10 @@ cjson_array_fscan(FILE *stream, struct cjson *parent)
 l_loop:;
     }
 
-    ec_throw_strf(CJSONX_PARSE, "Incomplete array: %ld", ftell(stream));
+    cjsonx_parse_c(stream, current, "Expecting more data; Incomplete array.");
 
 l_invalid:
-    ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %x '%c'.", ftell(stream), current, current);
+    cjsonx_parse_c(stream, current, "Expecting to find a JSON type to parse.");
 
 l_whitespace:
     goto l_loop;
@@ -105,7 +104,7 @@ l_null:
 
 l_array_continue:
     if (child == NULL) {
-      goto l_invalid;
+      cjsonx_parse_c(stream, current, "Array value was not specified.");
     }
     else {
       child = NULL;
@@ -115,13 +114,13 @@ l_array_continue:
 
 l_array_finish:
     if (continued && child == NULL) {
-      goto l_invalid;
+      cjsonx_parse_c(stream, current, "Array value was not specified.");
     }
-  }
 
-  if (node->hook &&
-      node->hook->valid) {
-    node->hook->valid(node);
+    if (node->hook &&
+        node->hook->valid) {
+      node->hook->valid(node);
+    }
   }
 
   return node;
@@ -130,9 +129,7 @@ l_array_finish:
 void
 cjson_array_fprint(FILE *stream, struct cjson *node)
 {
-  if (node->type != CJSON_ARRAY) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_ARRAY.", node->type);
-  }
+  cjsonx_type(node, CJSON_ARRAY);
 
   Word_t total = 0;
   Word_t index = 0;
@@ -167,10 +164,7 @@ cjson_array_fprint(FILE *stream, struct cjson *node)
 size_t
 cjson_array_length(struct cjson *self)
 {
-  if (self->type != CJSON_ARRAY &&
-      self->type != CJSON_ROOT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_ARRAY or CJSON_ROOT.", self->type);
-  }
+  cjsonx_type2(self, CJSON_ARRAY, CJSON_ROOT);
 
   size_t total = 0;
   JLC(total, self->value.array.data, 0, -1);
@@ -180,10 +174,7 @@ cjson_array_length(struct cjson *self)
 struct cjson *
 cjson_array_get(struct cjson *self, size_t index)
 {
-  if (self->type != CJSON_ARRAY &&
-      self->type != CJSON_ROOT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_ARRAY or CJSON_ROOT.", self->type);
-  }
+  cjsonx_type2(self, CJSON_ARRAY, CJSON_ROOT);
 
   struct cjson **value = NULL;
   JLG(value, self->value.array.data, index);
@@ -216,10 +207,7 @@ array_unset(struct array_unset *u)
 struct cjson *
 cjson_array_set(struct cjson *self, size_t index, struct cjson *item)
 {
-  if (self->type != CJSON_ARRAY &&
-      self->type != CJSON_ROOT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_ARRAY or CJSON_ROOT.", self->type);
-  }
+  cjsonx_type2(self, CJSON_ARRAY, CJSON_ROOT);
 
   struct cjson **value = NULL;
   struct cjson *previous = cjson_array_get(self, index);
@@ -285,10 +273,7 @@ array_untruncate(struct array_untruncate *u)
 struct cjson *
 cjson_array_truncate(struct cjson *self, size_t length)
 {
-  if (self->type != CJSON_ARRAY &&
-      self->type != CJSON_ROOT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_ARRAY or CJSON_ROOT.", self->type);
-  }
+  cjsonx_type2(self, CJSON_ARRAY, CJSON_ROOT);
 
   size_t current_length = cjson_array_length(self);
   if (length >= current_length) {
@@ -326,6 +311,7 @@ cjson_array_truncate(struct cjson *self, size_t length)
 struct array_unappend {
   struct cjson *self;
   struct cjson *item;
+  size_t index;
   struct cjson *parent;
 };
 
@@ -334,33 +320,27 @@ void
 array_unappend(struct array_unappend *u)
 {
   int status = 0;
-  struct cjson **value = NULL;
-  size_t index = 0;
-
-  JLC(index, u->self->value.array.data, 0, -1);
-  index--;
-  JLD(status, u->self->value.array.data, index);
+  JLD(status, u->self->value.array.data, u->index);
   u->item->parent = u->parent;
 }
 
 void
 cjson_array_append(struct cjson *self, struct cjson *item)
 {
-  if (self->type != CJSON_ARRAY &&
-      self->type != CJSON_ROOT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_ARRAY or CJSON_ROOT.", self->type);
-  }
+  cjsonx_type2(self, CJSON_ARRAY, CJSON_ROOT);
+
+  size_t index = 0;
+  JLC(index, self->value.array.data, 0, -1);
 
   struct array_unappend u = {
     .self = self,
     .item = item,
+    .index = index,
     .parent = item->parent,
   };
   ec_with_on_x(&u, (ec_unwind_f)array_unappend) {
     struct cjson **value = NULL;
-    size_t index = 0;
 
-    JLC(index, self->value.array.data, 0, -1);
     JLI(value, self->value.array.data, index);
     *value = item;
     item->parent = self;
@@ -397,15 +377,8 @@ array_unextend(struct array_unextend *u) {
 void
 cjson_array_extend(struct cjson *self, struct cjson *item)
 {
-  if (self->type != CJSON_ARRAY &&
-      self->type != CJSON_ROOT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_ARRAY or CJSON_ROOT.", self->type);
-  }
-
-  if (item->type != CJSON_ARRAY &&
-      self->type != CJSON_ROOT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid item type: 0x%2x. Requires CJSON_ARRAY or CJSON_ROOT.", item->type);
-  }
+  cjsonx_type2(self, CJSON_ARRAY, CJSON_ROOT);
+  cjsonx_type2(item, CJSON_ARRAY, CJSON_ROOT);
 
   int status = 0;
   size_t index = 0;

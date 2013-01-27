@@ -48,7 +48,7 @@ cjson_jestr_fgetu(FILE *stream)
   };
 
   static void *go_jestr_escape[] = {
-    [0 ... 255] = &&l_invalid,
+    [0 ... 255] = &&l_invalid_escape,
 
     ['"']  = &&l_escape_q,
     ['\\'] = &&l_escape_rs,
@@ -74,11 +74,7 @@ l_loop:;
   }
 
 l_invalid:
-  {
-    long location = ftell(stream);
-    ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %x: %s", location, current, message);
-    return 0;
-  }
+  cjsonx_parse_c(stream, current, "Expecting a UTF-8 character.");
 
 l_char:
   return current;
@@ -86,6 +82,9 @@ l_char:
 l_utf8:
   ecx_ungetc(current, stream);
   return cjson_u8_fgetu(stream);
+
+l_invalid_escape:
+  cjsonx_parse_c(stream, current, "Expecting an escape sequence.");
 
 l_escape:
   go = go_jestr_escape;
@@ -120,8 +119,7 @@ l_u16e:
   {
     int64_t val = cjson_u16e_fgetu(stream);
     if (val == EOF) {
-      message = "Unexpected EOF.";
-      goto l_invalid;
+      cjsonx_parse_c(stream, current, "Expecting more data to finish UTF-16 escape sequence.");
     }
     return val;
   }
@@ -136,14 +134,10 @@ cjson_jestr_fscan(FILE *stream)
     ec_with(out, (ec_unwind_f)ecx_fclose) {
       int64_t current = cjson_jestr_fgetu(stream);
       if (current == EOF) {
-        long location = ftell(stream);
-        ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %" PRIx64 ": Expecting more data.", location, current);
-        return NULL;
+        cjsonx_parse_u(stream, current, "Expecting more data. Failed to find JSON escaped string to parse.");
       }
       else if (current != '"') {
-        long location = ftell(stream);
-        ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %" PRIx64 ": Expecting '\"'.", location, current);
-        return NULL;
+        cjsonx_parse_u(stream, current, "Failed to find JSON escaped string to parse; Expecting '\"'.");
       }
 
       int peek = ecx_getc(stream);
@@ -153,7 +147,7 @@ cjson_jestr_fscan(FILE *stream)
 
       for (; current != EOF; peek = ecx_getc(stream), ecx_ungetc(peek, stream), current = cjson_jestr_fgetu(stream)) {
         if (current == EOF) {
-          ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %" PRIx64 ": Expecting more data.", ftell(stream), current);
+          cjsonx_parse_u(stream, current, "Expecting more data; Failed to find end of JSON escaped string.");
         }
         if (current == '"' && peek != '\\') {
           break;

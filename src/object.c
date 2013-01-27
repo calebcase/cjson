@@ -27,8 +27,7 @@ cjson_object_fscan(FILE *stream, struct cjson *parent)
 
     current = ecx_fgetc(stream);
     if (current != '{') {
-      long location = ftell(stream);
-      ec_throw_strf(CJSONX_PARSE, "Unable to find object to parse: %ld", location);
+      cjsonx_parse_c(stream, current, "Unable to find object to parse; Expecting '{'.");
     }
 
     for (current = ecx_fgetc(stream); current != EOF; errno = 0, current = ecx_fgetc(stream)) {
@@ -36,16 +35,10 @@ cjson_object_fscan(FILE *stream, struct cjson *parent)
 l_loop:;
     }
 
-    {
-      long location = ftell(stream);
-      ec_throw_strf(CJSONX_PARSE, "Incomplete array: %ld", location);
-    }
+    cjsonx_parse_c(stream, current, "Expecting more data; Incomplete object.");
 
 l_invalid:
-    {
-      long location = ftell(stream);
-      ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %x '%c'.", location, current, current);
-    }
+    cjsonx_parse_c(stream, current, "Expecting to find a JSON key/value pair to parse.");
 
 l_whitespace:
     goto l_loop;
@@ -75,11 +68,11 @@ l_object_finish:
     if (continued && pair == NULL) {
       goto l_invalid;
     }
-  }
 
-  if (node->hook &&
-      node->hook->valid) {
-    node->hook->valid(node);
+    if (node->hook &&
+        node->hook->valid) {
+      node->hook->valid(node);
+    }
   }
 
   return node;
@@ -88,10 +81,7 @@ l_object_finish:
 void
 cjson_object_fprint(FILE *stream, struct cjson *node)
 {
-  if (node->type != CJSON_OBJECT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_OBJECT.", node->type);
-    return;
-  }
+  cjsonx_type(node, CJSON_OBJECT);
 
   struct cjson **value = NULL;
   struct cjson **next = NULL;
@@ -149,9 +139,7 @@ cjson_object_count(struct cjson *self)
 struct cjson *
 cjson_object_get(struct cjson *self, char *key)
 {
-  if (self->type != CJSON_OBJECT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_OBJECT.", self->type);
-  }
+  cjsonx_type(self, CJSON_OBJECT);
 
   struct cjson **value = NULL;
   JSLG(value, self->value.object.data, key);
@@ -204,13 +192,8 @@ object_unset(struct object_unset *u)
 struct cjson *
 cjson_object_set(struct cjson *self, struct cjson *pair)
 {
-  if (self->type != CJSON_OBJECT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_OBJECT.", self->type);
-  }
-
-  if (pair->type != CJSON_PAIR) {
-    ec_throw_str_static(CJSONX_PARSE, "Invalid type: Only pairs can be inserted into objects.");
-  }
+  cjsonx_type(self, CJSON_OBJECT);
+  cjsonx_type(pair, CJSON_PAIR);
 
   struct cjson **value = NULL;
   struct cjson *previous = cjson_object_get(self, pair->value.pair.key);
@@ -277,13 +260,8 @@ object_unremove(struct object_unremove *u)
 struct cjson *
 cjson_object_remove(struct cjson *self, struct cjson *pair)
 {
-  if (self->type != CJSON_OBJECT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_OBJECT.", self->type);
-  }
-
-  if (pair->type != CJSON_PAIR) {
-    ec_throw_str_static(CJSONX_PARSE, "Invalid type: Only pairs can be removed from objects.");
-  }
+  cjsonx_type(self, CJSON_OBJECT);
+  cjsonx_type(pair, CJSON_PAIR);
 
   struct cjson **value = NULL;
   JSLG(value, self->value.object.data, pair->value.pair.key);
@@ -320,9 +298,7 @@ cjson_object_remove(struct cjson *self, struct cjson *pair)
 
 int
 cjson_object_for_each(struct cjson *self, int (*call)(void *data, struct cjson *pair), void *data) {
-  if (self->type != CJSON_OBJECT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_OBJECT.", self->type);
-  }
+  cjsonx_type(self, CJSON_OBJECT);
 
   int status = 0;
   char *key = ecx_malloc(self->value.object.key_length + 1);

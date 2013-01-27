@@ -55,13 +55,10 @@ cjson_pair_fscan(FILE *stream, struct cjson *parent)
 l_loop:;
     }
 
-    {
-      long location = ftell(stream);
-      ec_throw_strf(CJSONX_PARSE, "Incomplete pair: %ld", location);
-    }
+    cjsonx_parse_c(stream, current, "Expecting more data; Incomplete pair (missing data for '%s').", key);
 
 l_invalid:
-    ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %x '%c'.", ftell(stream), current, current);
+    cjsonx_parse_c(stream, current, "Expecting to find a JSON type to parse for pair data.");
 
 l_whitespace:
     goto l_loop;
@@ -103,11 +100,11 @@ l_null:
 l_pair_finish:
     node->value.pair.key = key;
     node->value.pair.value = value;
-  }
 
-  if (node->hook &&
-      node->hook->valid) {
-    node->hook->valid(node);
+    if (node->hook &&
+        node->hook->valid) {
+      node->hook->valid(node);
+    }
   }
 
   return node;
@@ -116,10 +113,7 @@ l_pair_finish:
 void
 cjson_pair_fprint(FILE *stream, struct cjson *node)
 {
-  if (node->type != CJSON_PAIR) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_PAIR.", node->type);
-    return;
-  }
+  cjsonx_type(node, CJSON_PAIR);
 
   cjson_jestr_fprint(stream, node->value.pair.key);
   ecx_fprintf(stream, ": ");

@@ -58,10 +58,7 @@ l_loop:;
     goto l_root_finish;
 
 l_invalid:
-    {
-      long location = ftell(stream);
-      ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %x '%c'.", location, current, current);
-    }
+    cjsonx_parse_c(stream, current, "Expecting to find a JSON type to parse.");
 
 l_whitespace:
     goto l_loop;
@@ -146,12 +143,10 @@ l_root_next:
     goto l_root_finish;
 
 l_root_finish:
-    go = go_root;
-  }
-
-  if (node->hook &&
-      node->hook->valid) {
-    node->hook->valid(node);
+    if (node->hook &&
+        node->hook->valid) {
+      node->hook->valid(node);
+    }
   }
 
   return node;
@@ -160,10 +155,7 @@ l_root_finish:
 void
 cjson_root_fprint(FILE *stream, struct cjson *node)
 {
-  if (node->type != CJSON_ROOT) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_ROOT.", node->type);
-    return;
-  }
+  cjsonx_type(node, CJSON_ROOT);
 
   Word_t total = 0;
   Word_t index = 0;

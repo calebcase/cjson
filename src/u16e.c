@@ -8,7 +8,8 @@ cjson_u16e_fputu(const uint32_t u, FILE *stream)
 {
   if ((u >= 0xD800 && u <= 0xDFFF) || /* Reserved for UTF-16 parsing. */
       (u >= 0xFFFE && u <= 0xFFFF)) {
-    ec_throw_str_static(ECX_EC, "Invalid unicode character.");
+    uint64_t u32 = u;
+    cjsonx_parse_u(stream, u32, "Invalid unicode character.");
   }
 
   if (u <= 0xD7FF ||
@@ -23,7 +24,8 @@ cjson_u16e_fputu(const uint32_t u, FILE *stream)
     ecx_fprintf(stream, "\\u%04" PRIx16 "\\u%04" PRIx16, uhex[0], uhex[1]);
   }
   else {
-    ec_throw_str_static(ECX_EC, "Invalid unicode character.");
+    uint64_t u32 = u;
+    cjsonx_parse_u(stream, u32, "Invalid unicode character.");
   }
 }
 
@@ -81,16 +83,11 @@ l_loop:;
   }
 
   if (current == EOF) {
-    message = "Unexpected EOF. At least 4 bytes are required.";
-    goto l_invalid;
+    cjsonx_parse_c(stream, current, "Expecting more data (4 bytes); Failed to find UTF-16 escape sequence.");
   }
 
 l_invalid:
-  {
-    long location = ftell(stream);
-    ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %x: %s", location, current, message);
-    return 0;
-  }
+  cjsonx_parse_c(stream, current, "Expecting a hex character.");
 
 l_nibble:
   bytes[count] = lookup[current];
@@ -124,8 +121,7 @@ cjson_u16e_fgetu(FILE *stream)
   }
 
   if (current != 'u') {
-    message = "Expecting 'u'.";
-    goto l_invalid;
+    cjsonx_parse_c(stream, current, "Failed to find UTF-16 escape sequence; Expecting 'u'.");
   }
 
   /* Read the leading character. */
@@ -137,14 +133,12 @@ cjson_u16e_fgetu(FILE *stream)
       /* Read the trailing character. */
       current = ecx_fgetc(stream);
       if (current != '\\') {
-        message = "Expecting '\\'.";
-        goto l_invalid;
+        cjsonx_parse_c(stream, current, "Failed to find trailing UTF-16 escape sequence; Expecting '\\'.");
       }
 
       current = ecx_fgetc(stream);
       if (current != 'u') {
-        message = "Expecting 'u'.";
-        goto l_invalid;
+        cjsonx_parse_c(stream, current, "Failed to find trailing UTF-16 escape sequence; Expecting 'u'.");
       }
 
       uhex[1] = fget_uint16(stream);
@@ -153,11 +147,13 @@ cjson_u16e_fgetu(FILE *stream)
         u += 0x10000;
       }
       else {
-        ec_throw_str_static(ECX_EC, "Invalid trailing UTF-16 surrogate.");
+        uint64_t u16 = uhex[1];
+        cjsonx_parse_u(stream, u16, "Invalid trailing UTF-16 surrogate.");
       }
     }
     else {
-      ec_throw_str_static(ECX_EC, "Invalid leading UTF-16 surrogate.");
+      uint64_t u16 = uhex[0];
+      cjsonx_parse_u(stream, u16, "Invalid leading UTF-16 surrogate.");
     }
   }
   else {
@@ -165,11 +161,4 @@ cjson_u16e_fgetu(FILE *stream)
   }
 
   return u;
-
-l_invalid:
-  {
-    long location = ftell(stream);
-    ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %x: %s", location, current, message);
-  }
-  return 0;
 }

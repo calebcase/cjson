@@ -7,25 +7,22 @@ cjson_null_fscan(FILE *stream, struct cjson *parent)
   ec_with_on_x(node, (ec_unwind_f)cjson_free) {
     int current = ecx_fgetc(stream);
     if (current == 'n') {
-      if ((current = ecx_fgetc(stream)) != 'u') { goto l_invalid; }
-      if ((current = ecx_fgetc(stream)) != 'l') { goto l_invalid; }
-      if ((current = ecx_fgetc(stream)) != 'l') { goto l_invalid; }
+      if ((current = ecx_fgetc(stream)) != 'u') { cjsonx_parse_c(stream, current, "Parsing 'null': Expecting 'u'.") };
+      if ((current = ecx_fgetc(stream)) != 'l') { cjsonx_parse_c(stream, current, "Parsing 'null': Expecting 'l'.") };
+      if ((current = ecx_fgetc(stream)) != 'l') { cjsonx_parse_c(stream, current, "Parsing 'null': Expecting 'l'.") };
     }
     else if (current == EOF) {
-      ec_throw_str_static(CJSONX_PARSE, "Failed to find null to parse.");
+      ec_throw_str_static(CJSONX_PARSE, "Expecting more data; Failed to find null to parse.");
     }
     else {
 l_invalid:
-      {
-        long location = ftell(stream);
-        ec_throw_strf(CJSONX_PARSE, "Invalid character at %ld: %x.", location, current);
-      }
+      cjsonx_parse_c(stream, current, "Expecting 'n' to begin parsing 'null'.");
     }
-  }
 
-  if (node->hook &&
-      node->hook->valid) {
-    node->hook->valid(node);
+    if (node->hook &&
+        node->hook->valid) {
+      node->hook->valid(node);
+    }
   }
 
   return node;
@@ -34,10 +31,7 @@ l_invalid:
 void
 cjson_null_fprint(FILE *stream, struct cjson *node)
 {
-  if (node->type != CJSON_NULL) {
-    ec_throw_strf(CJSONX_PARSE, "Invalid node type: 0x%2x. Requires CJSON_NULL.", node->type);
-    return;
-  }
+  cjsonx_type(node, CJSON_NULL);
 
   ecx_fputs("null", stream);
 }
