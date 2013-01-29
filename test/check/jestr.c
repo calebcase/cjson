@@ -199,6 +199,17 @@ START_TEST(fprint)
 }
 END_TEST
 
+START_TEST(normalize)
+{
+  char *normalized = NULL;
+
+  normalized = cjson_jestr_normalize("asdf");
+  fail_unless(normalized != NULL);
+  fail_unless(strcmp(normalized, "asdf") == 0);
+  free(normalized);
+}
+END_TEST
+
 static
 Suite *
 suite(void)
@@ -227,6 +238,10 @@ suite(void)
   TCase *tcase_fprint = tcase_create("fprint");
   tcase_add_test(tcase_fprint, fprint);
   suite_add_tcase(suite, tcase_fprint);
+
+  TCase *tcase_normalize = tcase_create("normalize");
+  tcase_add_test(tcase_normalize, normalize);
+  suite_add_tcase(suite, tcase_normalize);
 
   return suite;
 }

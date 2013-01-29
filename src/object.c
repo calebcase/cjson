@@ -137,7 +137,7 @@ cjson_object_count(struct cjson *self)
 }
 
 struct cjson *
-cjson_object_get(struct cjson *self, char *key)
+cjson_object_get(struct cjson *self, const char *key)
 {
   cjsonx_type(self, CJSON_OBJECT);
 
@@ -204,8 +204,8 @@ cjson_object_set(struct cjson *self, struct cjson *pair)
     .previous = previous,
     .parent = pair->parent,
     .length = self->value.object.key_length,
-  };
-  ec_with_on_x(&u, (ec_unwind_f)object_unset) {
+  }, *up = &u;
+  ec_with_on_x(up, (ec_unwind_f)object_unset) {
     JSLI(value, self->value.object.data, pair->value.pair.key);
     *value = pair;
     pair->parent = self;
@@ -273,8 +273,8 @@ cjson_object_remove(struct cjson *self, struct cjson *pair)
     .self = self,
     .previous = *value,
     .length = self->value.object.key_length,
-  };
-  ec_with_on_x(&u, (ec_unwind_f)object_unremove) {
+  }, *up = &u;
+  ec_with_on_x(up, (ec_unwind_f)object_unremove) {
     int status = 0;
     JSLD(status, self->value.object.data, pair->value.pair.key);
 

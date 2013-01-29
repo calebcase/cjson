@@ -212,6 +212,7 @@ START_TEST(manipulate)
   fail_unless(strcmp(cjson_array_get(old, 1)->value.number, "2") == 0);
 
   cjson_array_extend(a, old);
+  cjson_free(old);
   fail_unless(cjson_array_length(a) == 3);
   fail_unless(cjson_array_get(a, 2) == tmp);
   old = cjson_array_truncate(a, 1);

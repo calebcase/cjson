@@ -75,6 +75,9 @@ cjson_init(struct cjson *node, enum cjson_type type, struct cjson *parent);
 void
 cjson_fprint(FILE *stream, struct cjson *node);
 
+struct cjson *
+cjson_get(struct cjson *node, const char *segments);
+
 /* Finialize and deallocate a cjson tree. */
 void cjson_free(struct cjson *node);
 
@@ -140,7 +143,7 @@ size_t
 cjson_object_count(struct cjson *self);
 
 struct cjson *
-cjson_object_get(struct cjson *self, char *key);
+cjson_object_get(struct cjson *self, const char *key);
 
 struct cjson *
 cjson_object_set(struct cjson *self, struct cjson *pair);
@@ -198,6 +201,9 @@ cjson_jestr_fscan(FILE *stream);
 
 void
 cjson_jestr_fprint(FILE *stream, char *jestr);
+
+char *
+cjson_jestr_normalize(const char *jestr);
 
 /*** String ***/
 

@@ -218,8 +218,8 @@ cjson_array_set(struct cjson *self, size_t index, struct cjson *item)
     .item = item,
     .previous = previous,
     .parent = item->parent,
-  };
-  ec_with_on_x(&u, (ec_unwind_f)array_unset) {
+  }, *up = &u;
+  ec_with_on_x(up, (ec_unwind_f)array_unset) {
     JLI(value, self->value.array.data, index);
     if (value == NULL) {
       ec_throw_strf(CJSONX_INDEX, "Invalid index: %zu. Requires 0 <= index < %zu.", index, cjson_array_length(self));
@@ -286,8 +286,8 @@ cjson_array_truncate(struct cjson *self, size_t length)
     struct array_untruncate u = {
       .self = self,
       .node = node,
-    };
-    ec_with_on_x(&u, (ec_unwind_f)array_untruncate) {
+    }, *up = &u;
+    ec_with_on_x(up, (ec_unwind_f)array_untruncate) {
       int status = 0;
       struct cjson **value = NULL;
 
@@ -337,8 +337,8 @@ cjson_array_append(struct cjson *self, struct cjson *item)
     .item = item,
     .index = index,
     .parent = item->parent,
-  };
-  ec_with_on_x(&u, (ec_unwind_f)array_unappend) {
+  }, *up = &u;
+  ec_with_on_x(up, (ec_unwind_f)array_unappend) {
     struct cjson **value = NULL;
 
     JLI(value, self->value.array.data, index);
@@ -388,8 +388,8 @@ cjson_array_extend(struct cjson *self, struct cjson *item)
     .self = self,
     .item = item,
     .length = cjson_array_length(self),
-  };
-  ec_with_on_x(&u, (ec_unwind_f)array_unextend) {
+  }, *up = &u;
+  ec_with_on_x(up, (ec_unwind_f)array_unextend) {
     JLF(value, item->value.array.data, index);
     while (value != NULL) {
       cjson_array_append(self, *value);

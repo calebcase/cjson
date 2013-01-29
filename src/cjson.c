@@ -238,6 +238,38 @@ cjson_fprint(FILE *stream, struct cjson *node)
   }
 }
 
+struct cjson *
+cjson_get(struct cjson *node, const char *segments)
+{
+  struct cjson *found = node;
+  const char *segment = segments;
+  size_t length = strlen(segment);
+  while (length != 0) {
+    char *normalized = cjson_jestr_normalize(segment);
+    ec_with(normalized, free) {
+      switch (found->type) {
+        case CJSON_ARRAY:
+          {
+            size_t index = 0;
+            ecx_sscanf(normalized, "%zu", &index);
+            found = cjson_array_get(found, index);
+          }
+          break;
+        case CJSON_OBJECT:
+          found = cjson_object_get(found, normalized)->value.pair.value;
+          break;
+        default:
+          cjsonx_type2(found, CJSON_ARRAY, CJSON_OBJECT);
+      }
+
+      segment = segment + length + 1;
+      length = strlen(segment);
+    }
+  }
+
+  return found;
+}
+
 /*** cjson data handlers. ***/
 
 #include "array.c"

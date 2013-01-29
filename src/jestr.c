@@ -174,3 +174,24 @@ cjson_jestr_fprint(FILE *stream, char *jestr)
     ecx_fprintf(stream, "\"");
   }
 }
+
+char *
+cjson_jestr_normalize(const char *str)
+{
+  char *normalized = NULL;
+  ec_with_on_x(normalized, free) {
+    char *tmp = NULL;
+    ec_with(tmp, free) {
+      FILE *in = ecx_ccstreams_fstropen(&tmp, "w+");
+      ec_with(in, (ec_unwind_f)ecx_fclose) {
+        ecx_fputc('"', in);
+        ecx_fputs(str, in);
+        ecx_fputc('"', in);
+        rewind(in);
+        normalized = cjson_jestr_fscan(in);
+      }
+    }
+  }
+
+  return normalized;
+}
