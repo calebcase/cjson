@@ -78,6 +78,14 @@ cjson_fprint(FILE *stream, struct cjson *node);
 struct cjson *
 cjson_get(struct cjson *node, const char *segments);
 
+void
+cjson_segments_fprint(FILE *stream, struct cjson *node, struct cjson *child);
+
+typedef int (*cjson_walk_call_f)(void *data, struct cjson *pair);
+
+int
+cjson_walk(struct cjson *self, int (*call)(void *data, struct cjson *node), void *data);
+
 /* Finialize and deallocate a cjson tree. */
 void cjson_free(struct cjson *node);
 

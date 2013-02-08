@@ -384,7 +384,6 @@ START_TEST(validate)
 #undef UNCHANGED
 
   /* Test that changes are possible. */
-
   node->valid = 1;
   cjson_array_extend(r, tmp);
   fail_unless(cjson_array_length(tmp) == 0);

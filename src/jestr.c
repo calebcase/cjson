@@ -128,7 +128,7 @@ l_u16e:
 char *
 cjson_jestr_fscan(FILE *stream)
 {
-  char * jestr = NULL;
+  char *jestr = NULL;
   ec_with_on_x(jestr, free) {
     FILE * out = ecx_ccstreams_fstropen(&jestr, "w+");
     ec_with(out, (ec_unwind_f)ecx_fclose) {

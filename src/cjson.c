@@ -244,11 +244,12 @@ cjson_get(struct cjson *node, const char *segments)
   struct cjson *found = node;
   const char *segment = segments;
   size_t length = strlen(segment);
-  while (length != 0) {
+  while (length != 0 && found != NULL) {
     char *normalized = cjson_jestr_normalize(segment);
     ec_with(normalized, free) {
       switch (found->type) {
         case CJSON_ARRAY:
+        case CJSON_ROOT:
           {
             size_t index = 0;
             ecx_sscanf(normalized, "%zu", &index);
@@ -256,7 +257,11 @@ cjson_get(struct cjson *node, const char *segments)
           }
           break;
         case CJSON_OBJECT:
-          found = cjson_object_get(found, normalized)->value.pair.value;
+          found = cjson_object_get(found, normalized);
+          if (found == NULL) {
+            break;
+          }
+          found = found->value.pair.value;
           break;
         default:
           cjsonx_type2(found, CJSON_ARRAY, CJSON_OBJECT);
@@ -268,6 +273,123 @@ cjson_get(struct cjson *node, const char *segments)
   }
 
   return found;
+}
+
+void
+cjson_segments_fprint(FILE *stream, struct cjson *node, struct cjson *child)
+{
+  if (node == NULL) {
+    return;
+  }
+
+  cjson_segments_fprint(stream, node->parent, node);
+
+  if (child != NULL) {
+    switch (node->type) {
+      case CJSON_ARRAY:
+      case CJSON_ROOT:
+        {
+          struct cjson *found = NULL;
+          size_t length = cjson_array_length(node);
+          for (size_t i = 0; i < length; i++) {
+            found = cjson_array_get(node, i);
+            if (found == child) {
+              ecx_fprintf(stream, "%zu", i);
+              ecx_fputc('\0', stream);
+              break;
+            }
+          }
+          if (found == NULL) {
+            ec_throw_strf(CJSONX_NOT_FOUND, "Child wasn't found in the array: %p", child);
+          }
+        }
+        break;
+      case CJSON_PAIR:
+        ecx_fputs(node->value.pair.key, stream);
+        ecx_fputc('\0', stream);
+        break;
+    }
+  }
+  else {
+    switch (node->type) {
+      case CJSON_PAIR:
+        ecx_fputs(node->value.pair.key, stream);
+        ecx_fputc('\0', stream);
+        break;
+    }
+    if (node->parent == NULL) {
+      ecx_fputc('\0', stream);
+    }
+    ecx_fputc('\0', stream);
+  }
+}
+
+struct cjson_object_walk {
+  int (*call)(void *data, struct cjson *node);
+  void *data;
+};
+
+static
+int
+cjson_object_walk(struct cjson_object_walk *self, struct cjson *pair)
+{
+  return cjson_walk(pair, self->call, self->data);
+}
+
+int
+cjson_walk(struct cjson *self, int (*call)(void *data, struct cjson *node), void *data)
+{
+  int status = 0;
+
+  switch (self->type) {
+    case CJSON_ARRAY:
+    case CJSON_ROOT:
+      {
+        size_t length = cjson_array_length(self);
+        for (size_t i = 0; i < length; i++) {
+          status = cjson_walk(cjson_array_get(self, i), call, data);
+          if (status != 0) {
+            return status;
+          }
+        }
+        status = call(data, self);
+      }
+      break;
+    case CJSON_BOOLEAN:
+      status = call(data, self);
+      break;
+    case CJSON_NULL:
+      status = call(data, self);
+      break;
+    case CJSON_NUMBER:
+      status = call(data, self);
+      break;
+    case CJSON_OBJECT:
+      {
+        struct cjson_object_walk cow = {
+          .call = call,
+          .data = data,
+        };
+        status = cjson_object_for_each(self, (cjson_object_call_f)cjson_object_walk, &cow);
+        if (status != 0) {
+          return status;
+        }
+        status = call(data, self);
+      }
+      break;
+    case CJSON_PAIR:
+      status = cjson_walk(self->value.pair.value, call, data);
+      if (status != 0) {
+        return status;
+      }
+      status = call(data, self);
+      break;
+    case CJSON_STRING:
+      status = call(data, self);
+      break;
+  }
+
+  return status;
 }
 
 /*** cjson data handlers. ***/
