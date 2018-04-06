@@ -354,7 +354,7 @@ cjson_array_append(struct cjson *self, struct cjson *item)
 
 struct array_unextend {
   struct cjson *self;
-  struct cjson *item;
+  struct cjson *array;
   size_t length;
 };
 
@@ -368,17 +368,17 @@ array_unextend(struct array_unextend *u) {
   JLF(value, u->self->value.array.data, index);
   while (value != NULL) {
     struct cjson **revalue = NULL;
-    JLI(revalue, u->item->value.array.data, index);
+    JLI(revalue, u->array->value.array.data, index);
     JLD(status, u->self->value.array.data, index);
     JLN(value, u->self->value.array.data, index);
   }
 }
 
 void
-cjson_array_extend(struct cjson *self, struct cjson *item)
+cjson_array_extend(struct cjson *self, struct cjson *array)
 {
   cjsonx_type2(self, CJSON_ARRAY, CJSON_ROOT);
-  cjsonx_type2(item, CJSON_ARRAY, CJSON_ROOT);
+  cjsonx_type2(array, CJSON_ARRAY, CJSON_ROOT);
 
   int status = 0;
   size_t index = 0;
@@ -386,15 +386,15 @@ cjson_array_extend(struct cjson *self, struct cjson *item)
 
   struct array_unextend u = {
     .self = self,
-    .item = item,
+    .array = array,
     .length = cjson_array_length(self),
   }, *up = &u;
   ec_with_on_x(up, (ec_unwind_f)array_unextend) {
-    JLF(value, item->value.array.data, index);
+    JLF(value, array->value.array.data, index);
     while (value != NULL) {
       cjson_array_append(self, *value);
-      JLD(status, item->value.array.data, index);
-      JLN(value, item->value.array.data, index);
+      JLD(status, array->value.array.data, index);
+      JLN(value, array->value.array.data, index);
     }
 
     if (self->hook &&
